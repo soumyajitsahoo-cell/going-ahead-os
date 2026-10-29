@@ -17,6 +17,34 @@
         overflow:hidden;
         font-family: 'inter', -apple-system, scan-serif;
         user-select:none;
+        :root{
+            --glass-blur: 28px;
+            --glass-sat: 195%;
+            --refraction- scale; 18;
+            --accent:#38bdf8;
+            --radius-window: 22px;
+            --spring-ease:cubic-bezier(0.22,1,0.36,1);
+        }
+        html[data-theme="dark"]{
+            --bg-fallback: #06080;
+            --text-primary: #f4f6fb;
+            --glass-surface: rgba(14, 19, 30, 0.48 );
+            --glass-border-outer: rgba(255, 255, 255, 0.14);
+            --glass-border-inner: rgba(255, 255, 255, 0.28);
+            --glass-rim-top: rgba(255, 255, 255, 0.08);
+        }
+        html[data-theme="light"]{
+            --bg-fallback: #e8eef5;
+            --text-primary: #e90d16;
+            --glass-surface: rgba(255, 255, 255, 0.46);
+            --glass-border-outer: rgba(255, 255, 255, 0.78);
+            --glass-border-inner: rgba(255, 255, 255, 0.96);
+            --glass-rim-top: rgba(255, 255, 255, 0.98);
+        }
+        .liquid-glass{
+            background: var(--glass-surface);
+            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+            border: 1px solid var(--glass-border-outer); 
     }
 </style>
 <body>
