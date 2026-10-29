@@ -1,52 +1,94 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport"content="width=device-width,intial-scale=1.0,viewport-fit=cover"/>
-    <title>AetherOS - Optical liquid glass workspace</title><title>
-        <script scr="https://cdn.tailwindcess.com/3.4.17"></script>
-        <link rel="preconnect" href="https://fronts.googleapis.com">
-        <link rel="preconnect"herf="https://front.gstatic.com" crossorigin>
-        <link href="https://fronts.googleapis.com/css2?
-        family=Instrument+Serif:ital@0;1&fmily=Inter:wght@300;400;500;600&family=JetBrains+mono:wght@400;500&disply=swap"rel="stylesheet" >
-<style>
-    *{ box-sizing:border-box;}
-    body,html{
-        margin: 0;padding: 0;
-        width: 100%;height: 100%;
-        overflow:hidden;
-        font-family: 'inter', -apple-system, scan-serif;
-        user-select:none;
-        :root{
-            --glass-blur: 28px;
-            --glass-sat: 195%;
-            --refraction- scale; 18;
-            --accent:#38bdf8;
-            --radius-window: 22px;
-            --spring-ease:cubic-bezier(0.22,1,0.36,1);
-        }
-        html[data-theme="dark"]{
-            --bg-fallback: #06080;
-            --text-primary: #f4f6fb;
-            --glass-surface: rgba(14, 19, 30, 0.48 );
-            --glass-border-outer: rgba(255, 255, 255, 0.14);
-            --glass-border-inner: rgba(255, 255, 255, 0.28);
-            --glass-rim-top: rgba(255, 255, 255, 0.08);
-        }
-        html[data-theme="light"]{
-            --bg-fallback: #e8eef5;
-            --text-primary: #e90d16;
-            --glass-surface: rgba(255, 255, 255, 0.46);
-            --glass-border-outer: rgba(255, 255, 255, 0.78);
-            --glass-border-inner: rgba(255, 255, 255, 0.96);
-            --glass-rim-top: rgba(255, 255, 255, 0.98);
-        }
-        .liquid-glass{
-            background: var(--glass-surface);
-            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-            border: 1px solid var(--glass-border-outer); 
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>AetherOS — Optical Liquid Glass Workspace</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, sans-serif;
+      user-select: none;
     }
-</style>
+    :root {
+      --glass-blur: 28px;
+      --glass-sat: 195%;
+      --refraction-scale: 18;
+      --accent: #38bdf8;
+      --radius-window: 22px;
+      --spring-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    html[data-theme="dark"] {
+      --bg-fallback: #06080f;
+      --text-primary: #f4f6fb;
+      --glass-surface: rgba(14, 19, 30, 0.48);
+      --glass-border-outer: rgba(255, 255, 255, 0.14);
+      --glass-border-inner: rgba(255, 255, 255, 0.28);
+      --glass-rim-top: rgba(255, 255, 255, 0.46);
+    }
+    html[data-theme="light"] {
+      --bg-fallback: #e8eef5;
+      --text-primary: #090d16;
+      --glass-surface: rgba(255, 255, 255, 0.46);
+      --glass-border-outer: rgba(255, 255, 255, 0.78);
+      --glass-border-inner: rgba(255, 255, 255, 0.96);
+      --glass-rim-top: rgba(255, 255, 255, 0.98);
+    }
+    .liquid-glass {
+      background: var(--glass-surface);
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      border: 1px solid var(--glass-border-outer);
+    }
+  </style>
+</head>
 <body>
+  <svg class="fixed w-0 h-0 pointer-events-none" aria-hidden="true">
+    <defs>
+      <filter id="liquid-glass-filter" x="-10%" y="-10%" width="120%" height="120%">
+        <feImage id="fe-bezel-map" x="0%" y="0%" width="100%" height="100%" preserveAspectRatio="none" result="bezel_map" />
+        <feDisplacementMap id="fe-refract-disp" in="SourceGraphic" in2="bezel_map" scale="16" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </defs>
+  </svg>
+  <script>
+    const OpticalRefractionEngine = {
+      generateSquircleMap(w, h, ratio = 0.22) {
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const ctx = c.getContext('2d'), img = ctx.createImageData(w, h), d = img.data;
+        for (let y = 0; y < h; y++) {
+          const ny = (y / (h - 1)) * 2 - 1;
+          for (let x = 0; x < w; x++) {
+            const nx = (x / (w - 1)) * 2 - 1;
+            const dist = Math.pow(Math.pow(Math.abs(nx), 4) + Math.pow(Math.abs(ny), 4), 0.25);
+            let dx = 0, dy = 0;
+            if (dist > (1 - ratio)) {
+              const t = Math.min(1, (dist - (1 - ratio)) / ratio);
+              const mag = Math.sin(t * Math.PI * 0.5) * t;
+              const angle = Math.atan2(ny, nx);
+              dx = -Math.cos(angle) * mag; dy = -Math.sin(angle) * mag;
+            }
+            const idx = (y * w + x) * 4;
+            d[idx] = Math.round(128 + dx * 127);
+            d[idx+1] = Math.round(128 + dy * 127);
+            d[idx+2] = 128; d[idx+3] = 255;
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+        return c.toDataURL('image/png');
+      },
+      init() {
+        const map = this.generateSquircleMap(128, 128, 0.24);
+        document.getElementById('fe-bezel-map').setAttribute('href', map);
+      }
+    };
+    OpticalRefractionEngine.init();
+  </script>
 </body>
 </html>
