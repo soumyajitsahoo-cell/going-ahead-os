@@ -90,6 +90,40 @@
       }
     };
     OpticalRefractionEngine.init();
+    const WallpaperEngine = {
+  canvas: null, ctx: null, orbs: [],
+  init() {
+    this.canvas = document.getElementById('wallpaper-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    for (let i = 0; i < 4; i++) {
+      this.orbs.push({ x: 0.2 + i * 0.2, y: 0.3 + (i % 2) * 0.4, vx: 0.0003, vy: 0.0003, r: 0.35 });
+    }
+    this.loop();
+  },
+  resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; },
+  loop() {
+    this.draw();
+    requestAnimationFrame(() => this.loop());
+  },
+  draw() {
+    const w = this.canvas.width, h = this.canvas.height;
+    this.ctx.fillStyle = '#06080f';
+    this.ctx.fillRect(0, 0, w, h);
+    this.orbs.forEach(orb => {
+      orb.x += orb.vx; orb.y += orb.vy;
+      if (orb.x < 0.1 || orb.x > 0.9) orb.vx *= -1;
+      if (orb.y < 0.1 || orb.y > 0.9) orb.vy *= -1;
+      const g = this.ctx.createRadialGradient(orb.x * w, orb.y * h, 10, orb.x * w, orb.y * h, orb.r * w);
+      g.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.ctx.fillStyle = g;
+      this.ctx.beginPath(); this.ctx.arc(orb.x * w, orb.y * h, orb.r * w, 0, Math.PI * 2); this.ctx.fill();
+    });
+  }
+};
+WallpaperEngine.init();
   </script>
 </body>
 </html>
