@@ -11,11 +11,16 @@
   <style>
     * { box-sizing: border-box; }
     body, html {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       font-family: 'Inter', -apple-system, sans-serif;
       user-select: none;
+      -webkit-user-select: none;
+      background: var(--bg-fallback);
+      color: var(--text-primary);
     }
     :root {
       --glass-blur: 28px;
@@ -49,7 +54,42 @@
   </style>
 </head>
 <body>
-  <canvas id="wallpaper-canvas" class="fixed inset-0" w-full h-full pointer-events-non z-0"></canvas> 
+  <canvas id="wallpaper-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0"></canvas>
+
+  <header id="top-bar" class="fixed top-2 left-2.5 right-2.5 h-10 liquid-glass rounded-2xl z-[1000] px-3 flex items-center justify-between text-xs font-medium text-white">
+    <div class="flex items-center gap-2">
+      <button class="px-2.5 py-1 rounded-xl bg-white/10 font-serif text-sm italic">Æ AetherOS</button>
+      <span id="active-app-label" class="opacity-80">Desktop</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="topbar-clock" class="font-mono tabular-nums">00:00</span>
+    </div>
+  </header>
+
+  <div id="snap-preview" class="fixed z-[900] pointer-events-none hidden rounded-3xl liquid-glass border-2 border-sky-400"></div>
+
+  <nav id="dock-wrapper" class="fixed bottom-3 left-1/2 -translate-x-1/2 z-[1200]">
+    <div id="dock-bar" class="liquid-glass px-3 py-2 rounded-3xl flex items-center gap-2"></div>
+  </nav>
+
+  <aside id="desktop-widgets" class="fixed top-16 right-4 w-64 flex flex-col gap-3 z-[15]">
+    <div class="liquid-glass rounded-3xl p-4 text-white">
+      <div class="text-[11px] uppercase tracking-widest opacity-60">System FPS</div>
+      <div id="widget-fps" class="text-3xl font-light font-mono mt-1">60 FPS</div>
+    </div>
+    <div class="liquid-glass rounded-3xl p-4 text-white">
+      <div class="text-[11px] uppercase tracking-widest opacity-60 mb-1">Field Notes</div>
+      <textarea class="w-full bg-transparent text-xs resize-none focus:outline-none" rows="3" placeholder="Write quick notes here..."></textarea>
+    </div>
+  </aside>
+
+  <div id="optical-lens-loupe" class="fixed left-1/2 top-20 -translate-x-1/2 w-72 h-24 rounded-full liquid-glass z-[90] cursor-grab flex flex-col items-center justify-center p-4 text-white text-center select-none shadow-2xl">
+    <span class="font-serif italic text-lg">Optical Refraction Lens</span>
+    <span class="text-[11px] opacity-65">Drag me across the screen!</span>
+  </div>
+
+  <div id="windows-container" class="absolute inset-0 pointer-events-none z-[100]"></div>
+
   <svg class="fixed w-0 h-0 pointer-events-none" aria-hidden="true">
     <defs>
       <filter id="liquid-glass-filter" x="-10%" y="-10%" width="120%" height="120%">
@@ -58,11 +98,16 @@
       </filter>
     </defs>
   </svg>
+
   <script>
     const OpticalRefractionEngine = {
       generateSquircleMap(w, h, ratio = 0.22) {
-        const c = document.createElement('canvas'); c.width = w; c.height = h;
-        const ctx = c.getContext('2d'), img = ctx.createImageData(w, h), d = img.data;
+        const c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext('2d');
+        const img = ctx.createImageData(w, h);
+        const d = img.data;
         for (let y = 0; y < h; y++) {
           const ny = (y / (h - 1)) * 2 - 1;
           for (let x = 0; x < w; x++) {
@@ -73,12 +118,14 @@
               const t = Math.min(1, (dist - (1 - ratio)) / ratio);
               const mag = Math.sin(t * Math.PI * 0.5) * t;
               const angle = Math.atan2(ny, nx);
-              dx = -Math.cos(angle) * mag; dy = -Math.sin(angle) * mag;
+              dx = -Math.cos(angle) * mag;
+              dy = -Math.sin(angle) * mag;
             }
             const idx = (y * w + x) * 4;
             d[idx] = Math.round(128 + dx * 127);
-            d[idx+1] = Math.round(128 + dy * 127);
-            d[idx+2] = 128; d[idx+3] = 255;
+            d[idx + 1] = Math.round(128 + dy * 127);
+            d[idx + 2] = 128;
+            d[idx + 3] = 255;
           }
         }
         ctx.putImageData(img, 0, 0);
@@ -90,51 +137,258 @@
       }
     };
     OpticalRefractionEngine.init();
-    const WallpaperEngine = {
-  canvas: null, ctx: null, orbs: [],
-  init() {
-    this.canvas = document.getElementById('wallpaper-canvas');
-    this.ctx = this.canvas.getContext('2d');
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-    for (let i = 0; i < 4; i++) {
-      this.orbs.push({ x: 0.2 + i * 0.2, y: 0.3 + (i % 2) * 0.4, vx: 0.0003, vy: 0.0003, r: 0.35 });
-    }
-    this.loop();
-  },
-  resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; },
-  loop() {
-    this.draw();
-    requestAnimationFrame(() => this.loop());
-  },
-  draw() {
-    const w = this.canvas.width, h = this.canvas.height;
-    this.ctx.fillStyle = '#06080f';
-    this.ctx.fillRect(0, 0, w, h);
-    this.orbs.forEach(orb => {
-      orb.x += orb.vx; orb.y += orb.vy;
-      if (orb.x < 0.1 || orb.x > 0.9) orb.vx *= -1;
-      if (orb.y < 0.1 || orb.y > 0.9) orb.vy *= -1;
-      const g = this.ctx.createRadialGradient(orb.x * w, orb.y * h, 10, orb.x * w, orb.y * h, orb.r * w);
-      g.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
-      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      this.ctx.fillStyle = g;
-      this.ctx.beginPath(); this.ctx.arc(orb.x * w, orb.y * h, orb.r * w, 0, Math.PI * 2); this.ctx.fill();
-    });
-  }
-};
-WallpaperEngine.init();
-  const SVG_PATHS = {
-    'folder': '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
-    'terminal': '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
-    'calculator': '<rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/>',
-    'file-text': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'
-  };
 
-  function iconSvg(name, size = 16) {
-    const p = SVG_PATHS[name] || '<circle cx="12" cy="12" r="8"/>';
-    return `<svg class="line-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
-  }
+    const WallpaperEngine = {
+      canvas: null,
+      ctx: null,
+      orbs: [],
+      init() {
+        this.canvas = document.getElementById('wallpaper-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        for (let i = 0; i < 4; i++) {
+          this.orbs.push({ x: 0.2 + i * 0.2, y: 0.3 + (i % 2) * 0.4, vx: 0.0003, vy: 0.0003, r: 0.35 });
+        }
+        this.loop();
+      },
+      resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+      },
+      loop() {
+        this.draw();
+        requestAnimationFrame(() => this.loop());
+      },
+      draw() {
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        this.ctx.fillStyle = '#06080f';
+        this.ctx.fillRect(0, 0, w, h);
+        this.orbs.forEach(orb => {
+          orb.x += orb.vx;
+          orb.y += orb.vy;
+          if (orb.x < 0.1 || orb.x > 0.9) orb.vx *= -1;
+          if (orb.y < 0.1 || orb.y > 0.9) orb.vy *= -1;
+          const g = this.ctx.createRadialGradient(orb.x * w, orb.y * h, 10, orb.x * w, orb.y * h, orb.r * w);
+          g.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
+          g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          this.ctx.fillStyle = g;
+          this.ctx.beginPath();
+          this.ctx.arc(orb.x * w, orb.y * h, orb.r * w, 0, Math.PI * 2);
+          this.ctx.fill();
+        });
+      }
+    };
+    WallpaperEngine.init();
+
+    const SVG_PATHS = {
+      'folder': '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+      'terminal': '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+      'calculator': '<rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/>',
+      'file-text': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>'
+    };
+
+    function iconSvg(name, size = 16) {
+      const p = SVG_PATHS[name] || '<circle cx="12" cy="12" r="8"/>';
+      return `<svg class="line-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+    }
+
+    function updateClocks() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const clockEl = document.getElementById('topbar-clock');
+      if (clockEl) clockEl.textContent = `${h}:${m}`;
+    }
+    setInterval(updateClocks, 1000);
+    updateClocks();
+
+    const APPS = [
+      { id: 'files', name: 'Files', icon: 'folder' },
+      { id: 'notes', name: 'Notes', icon: 'file-text' },
+      { id: 'terminal', name: 'Terminal', icon: 'terminal' },
+      { id: 'calc', name: 'Calculator', icon: 'calculator' }
+    ];
+
+    function renderDock() {
+      const dock = document.getElementById('dock-bar');
+      dock.innerHTML = '';
+      APPS.forEach(app => {
+        const btn = document.createElement('button');
+        btn.className = 'dock-item w-12 h-12 rounded-2xl flex items-center justify-center text-white bg-white/10 hover:bg-white/20 transition-transform';
+        btn.innerHTML = iconSvg(app.icon, 22);
+        btn.onclick = () => alert('Clicked ' + app.name);
+        dock.appendChild(btn);
+      });
+      setupDockPhysics();
+    }
+
+    function setupDockPhysics() {
+      const dock = document.getElementById('dock-bar');
+      dock.addEventListener('mousemove', (e) => {
+        dock.querySelectorAll('.dock-item').forEach(item => {
+          const rect = item.getBoundingClientRect();
+          const dist = Math.abs(e.clientX - (rect.left + rect.width / 2));
+          if (dist < 110) {
+            const f = Math.cos((dist / 110) * (Math.PI / 2));
+            item.style.transform = `translateY(${-f * 8}px) scale(${1 + f * 0.25})`;
+          } else {
+            item.style.transform = '';
+          }
+        });
+      });
+      dock.addEventListener('mouseleave', () => {
+        dock.querySelectorAll('.dock-item').forEach(i => i.style.transform = '');
+      });
+    }
+    renderDock();
+
+    let frames = 0, lastTime = performance.now();
+    function measureFps() {
+      frames++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        const fpsEl = document.getElementById('widget-fps');
+        if (fpsEl) fpsEl.textContent = `${frames} FPS`;
+        frames = 0;
+        lastTime = now;
+      }
+      requestAnimationFrame(measureFps);
+    }
+    requestAnimationFrame(measureFps);
+
+    const loupe = document.getElementById('optical-lens-loupe');
+    let isDraggingLoupe = false, lx = 0, ly = 0;
+    loupe.addEventListener('mousedown', (e) => {
+      isDraggingLoupe = true;
+      loupe.style.transform = 'none';
+      lx = e.clientX - loupe.offsetLeft;
+      ly = e.clientY - loupe.offsetTop;
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingLoupe) return;
+      loupe.style.left = `${e.clientX - lx}px`;
+      loupe.style.top = `${e.clientY - ly}px`;
+    });
+    window.addEventListener('mouseup', () => { isDraggingLoupe = false; });
+
+    const OSState = {
+      theme: 'dark',
+      vfs: [
+        { id: 'f1', name: 'Welcome.md', folder: 'Desktop', content: '# Welcome to AetherOS!\nYour operating system is alive.' },
+        { id: 'f2', name: 'Secret_Notes.txt', folder: 'Documents', content: 'Snell Law refraction scale: 18px.' }
+      ],
+      zIndexCounter: 100
+    };
+
+    function saveState() {
+      try { localStorage.setItem('aether_state', JSON.stringify(OSState)); } catch(e){}
+    }
+
+    function loadState() {
+      try {
+        const data = localStorage.getItem('aether_state');
+        if (data) {
+          const parsed = JSON.parse(data);
+          if (parsed.vfs) OSState.vfs = parsed.vfs;
+        }
+      } catch(e){}
+    }
+    loadState();
+
+    function openAppWindow(appId, title = 'Application') {
+      const container = document.getElementById('windows-container');
+      const win = document.createElement('section');
+      win.className = 'os-window liquid-glass rounded-3xl absolute pointer-events-auto flex flex-col overflow-hidden text-white shadow-2xl';
+      win.style.left = '120px';
+      win.style.top = '100px';
+      win.style.width = '520px';
+      win.style.height = '340px';
+      win.style.zIndex = ++OSState.zIndexCounter;
+
+      win.innerHTML = `
+        <header class="win-titlebar h-10 px-4 bg-white/5 border-b border-white/10 flex items-center justify-between cursor-grab select-none">
+          <span class="text-xs font-semibold">${title}</span>
+          <button class="w-6 h-6 rounded-full bg-red-500/80 hover:bg-red-500 flex items-center justify-center text-xs" onclick="this.closest('.os-window').remove()">✕</button>
+        </header>
+        <div class="win-body p-4 flex-1 overflow-auto text-xs">
+          <p>Hello! This is your window for: <strong>${appId}</strong></p>
+        </div>
+        <div class="resize-handle absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize"></div>
+      `;
+
+      win.addEventListener('mousedown', () => {
+        win.style.zIndex = ++OSState.zIndexCounter;
+      });
+
+      const titlebar = win.querySelector('.win-titlebar');
+      let isDragging = false, startX = 0, startY = 0, initLeft = 0, initTop = 0;
+
+      titlebar.addEventListener('pointerdown', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        initLeft = win.offsetLeft;
+        initTop = win.offsetTop;
+        titlebar.setPointerCapture(e.pointerId);
+        win.style.zIndex = ++OSState.zIndexCounter;
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        win.style.left = `${initLeft + (e.clientX - startX)}px`;
+        win.style.top = `${initTop + (e.clientY - startY)}px`;
+      });
+
+      window.addEventListener('pointerup', () => { isDragging = false; });
+
+      const handle = win.querySelector('.resize-handle');
+      let isResizing = false, rw = 0, rh = 0, rx = 0, ry = 0;
+      handle.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        isResizing = true;
+        rw = win.offsetWidth;
+        rh = win.offsetHeight;
+        rx = e.clientX;
+        ry = e.clientY;
+        handle.setPointerCapture(e.pointerId);
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (!isResizing) return;
+        win.style.width = `${Math.max(260, rw + (e.clientX - rx))}px`;
+        win.style.height = `${Math.max(180, rh + (e.clientY - ry))}px`;
+      });
+      window.addEventListener('pointerup', () => { isResizing = false; });
+
+      container.appendChild(win);
+    }
+
+    const SoundEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      },
+      playTone(freq = 740, duration = 0.05) {
+        try {
+          this.init();
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e){}
+      },
+      glassTap() {
+        this.playTone(740, 0.04);
+      }
+    };
+    window.addEventListener('pointerdown', () => SoundEngine.glassTap());
   </script>
 </body>
 </html>
